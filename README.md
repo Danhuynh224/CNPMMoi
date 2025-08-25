@@ -1,4 +1,4 @@
-# Baitap02 - TypeScript Project
+# TypeScript Project
 
 Dự án Node.js với Express và Sequelize đã được chuyển đổi sang TypeScript.
 
