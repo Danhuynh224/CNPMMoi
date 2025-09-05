@@ -1,6 +1,7 @@
 require("dotenv").config();
 //import các nguồn cần dùng
 const express = require("express"); //commonjs
+const path = require("path");
 const configViewEngine = require("./config/viewEngine");
 const apiRoutes = require("./routes/api");
 const connectDB = require("./config/database");
@@ -23,6 +24,9 @@ app.use("/", webAPI);
 
 //khai báo route cho API
 app.use("/api/v1/", apiRoutes);
+
+// Serve static file (ảnh, video, v.v.)
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 (async () => {
   try {
