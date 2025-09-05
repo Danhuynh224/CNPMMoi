@@ -25,3 +25,16 @@ const getUserApi = () => {
 };
 
 export { createUserApi, loginApi, getUserApi };
+
+//Product
+const getAllProducts = (page = 1, limit = 10, category = "") => {
+  let URL_API = `/api/v1/products?page=${page}&limit=${limit}`;
+
+  if (category) {
+    URL_API += `&category=${encodeURIComponent(category)}`;
+  }
+
+  return axios.get(URL_API);
+};
+
+export { getAllProducts };
