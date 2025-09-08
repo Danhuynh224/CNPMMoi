@@ -10,6 +10,7 @@ const { delay } = require("../middlewares/delay");
 const {
   getAllProducts,
   getProduct,
+  searchProducts,
 } = require("../controllers/productController");
 const { createProduct } = require("../services/productService");
 
@@ -33,6 +34,7 @@ routerAPI.get("/account", delay, getAccount);
 
 // Product routes
 routerAPI.get("/products", getAllProducts);
+routerAPI.get("/products/search", searchProducts);
 routerAPI.get("/products/:id", getProduct);
 routerAPI.post("/products", createProduct);
 

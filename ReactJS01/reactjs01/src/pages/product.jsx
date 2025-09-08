@@ -10,6 +10,7 @@ import {
   Col,
   Tag,
   Button,
+  InputNumber,
 } from "antd";
 import {
   SearchOutlined,
@@ -17,18 +18,24 @@ import {
   EyeOutlined,
   HeartOutlined,
 } from "@ant-design/icons";
-import { getAllProducts } from "../util/api";
+import { getAllProducts, getAllProductsBySearch } from "../util/api";
 
 const { Search } = Input;
 const { Option } = Select;
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [pageSize, setPageSize] = useState(8);
+
+  // giá
+  const [priceMin, setPriceMin] = useState();
+  const [priceMax, setPriceMax] = useState();
+
   const beUrl = import.meta.env.VITE_BACKEND_URL;
 
   // Available categories
@@ -37,12 +44,29 @@ const ProductsPage = () => {
   const fetchProducts = async (page = 1, size = pageSize) => {
     setLoading(true);
     try {
-      const response = await getAllProducts(page, size, selectedCategory);
+      let response;
+
+      if (
+        searchQuery ||
+        selectedCategory ||
+        priceMin !== undefined ||
+        priceMax !== undefined
+      ) {
+        response = await getAllProductsBySearch({
+          page,
+          limit: size,
+          name: searchQuery,
+          category: selectedCategory,
+          priceMin,
+          priceMax,
+        });
+      } else {
+        response = await getAllProducts(page, size, selectedCategory);
+      }
+
       if (response && response.data) {
-        console.log(response);
-        const responseData = response;
-        setProducts(responseData.data || []);
-        setTotal(responseData.totalItems);
+        setProducts(response.data || []);
+        setTotal(response.totalItems || 0);
         setCurrentPage(page);
       } else {
         notification.error({
@@ -63,7 +87,21 @@ const ProductsPage = () => {
 
   useEffect(() => {
     fetchProducts(currentPage, pageSize);
-  }, [currentPage, pageSize, selectedCategory]);
+  }, [
+    currentPage,
+    pageSize,
+    selectedCategory,
+    searchQuery,
+    priceMin,
+    priceMax,
+  ]);
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setSelectedCategory("");
+    setPriceMin(undefined);
+    setPriceMax(undefined);
+    setCurrentPage(1);
+  };
 
   const handlePageChange = (page, size) => {
     setCurrentPage(page);
@@ -84,7 +122,8 @@ const ProductsPage = () => {
     setCurrentPage(1);
   };
 
-  const handleSearch = () => {
+  const handleSearch = (value) => {
+    setSearchQuery(value);
     setCurrentPage(1);
   };
 
@@ -107,15 +146,12 @@ const ProductsPage = () => {
 
   return (
     <div className="min-h-screen p-4 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* Main Container với responsive padding */}
       <div className="px-4 py-6 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
-        {/* Page Title - thêm padding top cho breathing room */}
-
-        {/* Filters với padding tối ưu */}
+        {/* Filters */}
         <div className="bg-white rounded-2xl shadow-lg mb-8">
           <div className="px-6 py-8 sm:px-8 sm:py-10">
             <Row gutter={[16, 16]} align="middle">
-              <Col xs={24} sm={12} md={8}>
+              <Col xs={24} sm={12} md={6}>
                 <Search
                   placeholder="Tìm kiếm sản phẩm..."
                   allowClear
@@ -125,7 +161,7 @@ const ProductsPage = () => {
                   className="rounded-lg"
                 />
               </Col>
-              <Col xs={24} sm={12} md={8}>
+              <Col xs={24} sm={12} md={6}>
                 <Select
                   size="large"
                   placeholder="Chọn danh mục"
@@ -141,32 +177,38 @@ const ProductsPage = () => {
                   ))}
                 </Select>
               </Col>
-              <Col xs={24} sm={12} md={8}>
-                <div className="flex items-center justify-end gap-3">
-                  <span className="text-gray-600 text-sm whitespace-nowrap">
-                    Hiển thị:
-                  </span>
-                  <Select
-                    size="large"
-                    value={pageSize}
-                    onChange={handleShowSizeChange}
-                    className="w-20"
-                  >
-                    <Option value={8}>8</Option>
-                    <Option value={12}>12</Option>
-                    <Option value={16}>16</Option>
-                    <Option value={24}>24</Option>
-                  </Select>
-                  <span className="text-gray-600 text-sm whitespace-nowrap">
-                    trong {total} sản phẩm
-                  </span>
-                </div>
+
+              {/* Price Filter */}
+              <Col xs={12} sm={6} md={6}>
+                <InputNumber
+                  placeholder="Giá từ"
+                  min={0}
+                  style={{ width: "100%" }}
+                  value={priceMin}
+                  onChange={setPriceMin}
+                />
+              </Col>
+              <Col xs={12} sm={6} md={6}>
+                <InputNumber
+                  placeholder="Đến"
+                  min={0}
+                  style={{ width: "100%" }}
+                  value={priceMax}
+                  onChange={setPriceMax}
+                />
+              </Col>
+
+              {/* Reset button */}
+              <Col xs={24} sm={24} md={24} className="text-right">
+                <Button onClick={handleResetFilters} danger>
+                  Reset bộ lọc
+                </Button>
               </Col>
             </Row>
           </div>
         </div>
 
-        {/* Loading với padding đều */}
+        {/* Loading */}
         {loading && (
           <div className="text-center py-20">
             <Spin size="large" />
@@ -174,10 +216,10 @@ const ProductsPage = () => {
           </div>
         )}
 
-        {/* Products Grid với spacing tối ưu */}
+        {/* Products Grid */}
         {!loading && (
           <div className="mb-12">
-            <Row gutter={[20, 24]} className="lg:gutter-[24, 32]">
+            <Row gutter={[20, 24]}>
               {products.map((product) => (
                 <Col key={product._id} xs={24} sm={12} md={8} lg={6}>
                   <Card
@@ -254,20 +296,7 @@ const ProductsPage = () => {
           </div>
         )}
 
-        {/* Empty State với padding đẹp */}
-        {!loading && products.length === 0 && (
-          <div className="text-center py-20">
-            <div className="text-gray-400 text-8xl mb-6">📦</div>
-            <h3 className="text-2xl font-semibold text-gray-600 mb-3">
-              Không tìm thấy sản phẩm
-            </h3>
-            <p className="text-gray-500 text-lg max-w-md mx-auto">
-              Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để tìm sản phẩm phù hợp
-            </p>
-          </div>
-        )}
-
-        {/* Pagination với padding và spacing đẹp */}
+        {/* Pagination */}
         {!loading && products.length > 0 && (
           <div className="flex justify-center pt-8 pb-12">
             <div className="bg-white rounded-2xl shadow-lg">

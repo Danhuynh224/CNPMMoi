@@ -15,6 +15,33 @@ async function getAllProducts(req, res) {
   }
 }
 
+// GET /products/search?query=apple&page=1&limit=10
+async function searchProducts(req, res) {
+  try {
+    const {
+      name,
+      category,
+      priceMin,
+      priceMax,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const result = await productService.searchProducts({
+      name: name?.trim(),
+      category,
+      priceMin: priceMin ? Number(priceMin) : undefined,
+      priceMax: priceMax ? Number(priceMax) : undefined,
+      page: Number(page),
+      limit: Number(limit),
+    });
+
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 // GET /products/:id
 async function getProduct(req, res) {
   try {
@@ -40,4 +67,5 @@ module.exports = {
   getAllProducts,
   getProduct,
   createProduct,
+  searchProducts,
 };

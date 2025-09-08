@@ -37,4 +37,22 @@ const getAllProducts = (page = 1, limit = 10, category = "") => {
   return axios.get(URL_API);
 };
 
-export { getAllProducts };
+const getAllProductsBySearch = ({
+  page = 1,
+  limit = 10,
+  name = "",
+  category = "",
+  priceMin,
+  priceMax,
+}) => {
+  let URL_API = `/api/v1/products/search?page=${page}&limit=${limit}`;
+
+  if (name) URL_API += `&name=${encodeURIComponent(name)}`;
+  if (category) URL_API += `&category=${encodeURIComponent(category)}`;
+  if (priceMin !== undefined) URL_API += `&priceMin=${priceMin}`;
+  if (priceMax !== undefined) URL_API += `&priceMax=${priceMax}`;
+
+  return axios.get(URL_API);
+};
+
+export { getAllProducts, getAllProductsBySearch };
