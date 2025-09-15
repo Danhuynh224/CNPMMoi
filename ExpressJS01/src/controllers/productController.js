@@ -7,7 +7,8 @@ async function getAllProducts(req, res) {
     const products = await productService.getProducts(
       Number(page),
       Number(limit),
-      category
+      category,
+      req.user.id
     );
     res.status(200).json(products);
   } catch (err) {
@@ -34,6 +35,7 @@ async function searchProducts(req, res) {
       priceMax: priceMax ? Number(priceMax) : undefined,
       page: Number(page),
       limit: Number(limit),
+      userId: req.user.id,
     });
 
     res.status(200).json(result);
@@ -45,7 +47,10 @@ async function searchProducts(req, res) {
 // GET /products/:id
 async function getProduct(req, res) {
   try {
-    const product = await productService.getProductById(req.params.id);
+    const product = await productService.getProductById(
+      req.params.id,
+      req.user.id
+    );
     if (!product) return res.status(404).json({ message: "Not found" });
     res.status(200).json(product);
   } catch (err) {
@@ -62,10 +67,59 @@ async function createProduct(req, res) {
     res.status(400).json({ error: err.message });
   }
 }
+// GET /products/:id/related
+async function getRelated(req, res) {
+  try {
+    const products = await productService.getRelatedProducts(req.params.id);
+    res.status(200).json(products);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// POST /products/:id/favorite
+async function toggleFavorite(req, res) {
+  try {
+    const favorites = await productService.toggleFavorite(
+      req.user.id,
+      req.params.id
+    );
+    res.status(200).json({ favorites });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// POST /products/:id/view
+async function addView(req, res) {
+  try {
+    const views = await productService.addRecentlyViewed(
+      req.user.id,
+      req.params.id
+    );
+    res.status(200).json({ recentlyViewed: views });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// GET /products/:id/stats
+async function getStats(req, res) {
+  try {
+    const stats = await productService.getStats(req.params.id);
+    res.status(200).json(stats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
 module.exports = {
   getAllProducts,
   getProduct,
   createProduct,
   searchProducts,
+  getRelated,
+  toggleFavorite,
+  addView,
+  getStats,
 };

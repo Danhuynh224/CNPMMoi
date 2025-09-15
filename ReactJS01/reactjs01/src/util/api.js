@@ -37,6 +37,10 @@ const getAllProducts = (page = 1, limit = 10, category = "") => {
   return axios.get(URL_API);
 };
 
+const getDetailProduct = (id) => {
+  const URL_API = `/api/v1/products/${id}`;
+  return axios.get(URL_API);
+};
 const getAllProductsBySearch = ({
   page = 1,
   limit = 10,
@@ -55,4 +59,34 @@ const getAllProductsBySearch = ({
   return axios.get(URL_API);
 };
 
-export { getAllProducts, getAllProductsBySearch };
+export { getAllProducts, getAllProductsBySearch, getDetailProduct };
+// Favorite
+const toggleFavoriteApi = (productId) => {
+  const URL_API = `/api/v1/products/${productId}/favorite`;
+  return axios.post(URL_API);
+};
+
+// Related
+const getRelatedProductsApi = (productId) => {
+  const URL_API = `/api/v1/products/${productId}/related`;
+  return axios.get(URL_API);
+};
+
+// Recently viewed
+const addViewApi = (productId) => {
+  const URL_API = `/api/v1/products/${productId}/view`;
+  return axios.post(URL_API);
+};
+
+// Stats (lượt mua, lượt xem, lượt bình luận…)
+const getProductStatsApi = (productId) => {
+  const URL_API = `/api/v1/products/${productId}/stats`;
+  return axios.get(URL_API);
+};
+
+export {
+  toggleFavoriteApi,
+  getRelatedProductsApi,
+  addViewApi,
+  getProductStatsApi,
+};

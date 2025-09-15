@@ -11,8 +11,13 @@ const {
   getAllProducts,
   getProduct,
   searchProducts,
+  getRelated,
+  toggleFavorite,
+  addView,
+  getStats,
 } = require("../controllers/productController");
 const { createProduct } = require("../services/productService");
+const authMiddleware = require("../middlewares/authMiddleware");
 
 const routerAPI = express.Router();
 
@@ -33,9 +38,14 @@ routerAPI.get("/user", getUser);
 routerAPI.get("/account", delay, getAccount);
 
 // Product routes
-routerAPI.get("/products", getAllProducts);
-routerAPI.get("/products/search", searchProducts);
-routerAPI.get("/products/:id", getProduct);
+routerAPI.get("/products", authMiddleware, getAllProducts);
+routerAPI.get("/products/search", authMiddleware, searchProducts);
+routerAPI.get("/products/:id", authMiddleware, getProduct);
 routerAPI.post("/products", createProduct);
+routerAPI.get("/products/:id/related", getRelated);
+// API yêu cầu đăng nhập
+routerAPI.post("/products/:id/view", authMiddleware, addView);
+routerAPI.post("/products/:id/favorite", authMiddleware, toggleFavorite);
+routerAPI.get("/products/:id/stats", getStats);
 
 module.exports = routerAPI;

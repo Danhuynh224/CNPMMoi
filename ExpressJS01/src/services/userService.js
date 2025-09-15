@@ -48,6 +48,7 @@ const loginService = async (email, password) => {
       } else {
         // create an access token
         const payload = {
+          id: user._id,
           email: user.email,
           name: user.name,
         };

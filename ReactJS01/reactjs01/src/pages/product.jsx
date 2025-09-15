@@ -11,14 +11,28 @@ import {
   Tag,
   Button,
   InputNumber,
+  Badge,
+  Tooltip,
+  Space,
+  Divider,
 } from "antd";
 import {
   SearchOutlined,
   ShoppingCartOutlined,
-  EyeOutlined,
   HeartOutlined,
+  HeartFilled,
+  EyeOutlined,
+  FireOutlined,
+  ClockCircleOutlined,
+  StarOutlined,
+  FilterOutlined,
 } from "@ant-design/icons";
-import { getAllProducts, getAllProductsBySearch } from "../util/api";
+import {
+  getAllProducts,
+  getAllProductsBySearch,
+  toggleFavoriteApi,
+} from "../util/api";
+import { useNavigate } from "react-router-dom";
 
 const { Search } = Input;
 const { Option } = Select;
@@ -31,15 +45,20 @@ const ProductsPage = () => {
   const [total, setTotal] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [pageSize, setPageSize] = useState(8);
-
-  // giá
   const [priceMin, setPriceMin] = useState();
   const [priceMax, setPriceMax] = useState();
+  const [viewMode, setViewMode] = useState("all"); // all, viewed, liked
+  const [favoriteLoading, setFavoriteLoading] = useState({});
 
   const beUrl = import.meta.env.VITE_BACKEND_URL;
+  const navigate = useNavigate();
 
-  // Available categories
   const categories = ["Tất cả", "Bóng bàn", "Cầu lông", "Bóng đá", "Bóng rổ"];
+  const viewModes = [
+    { key: "all", label: "Tất cả sản phẩm", icon: <FilterOutlined /> },
+    { key: "viewed", label: "Đã xem", icon: <EyeOutlined /> },
+    { key: "liked", label: "Yêu thích", icon: <HeartFilled /> },
+  ];
 
   const fetchProducts = async (page = 1, size = pageSize) => {
     setLoading(true);
@@ -65,8 +84,25 @@ const ProductsPage = () => {
       }
 
       if (response && response.data) {
-        setProducts(response.data || []);
-        setTotal(response.totalItems || 0);
+        let filteredProducts = response.data || [];
+
+        // Filter based on view mode
+        if (viewMode === "viewed") {
+          filteredProducts = filteredProducts.filter(
+            (product) => product.isViewed
+          );
+        } else if (viewMode === "liked") {
+          filteredProducts = filteredProducts.filter(
+            (product) => product.isLike
+          );
+        }
+
+        setProducts(filteredProducts);
+        setTotal(
+          viewMode === "all"
+            ? response.totalItems || 0
+            : filteredProducts.length
+        );
         setCurrentPage(page);
       } else {
         notification.error({
@@ -94,20 +130,72 @@ const ProductsPage = () => {
     searchQuery,
     priceMin,
     priceMax,
+    viewMode,
   ]);
+
+  const handleToggleFavorite = async (productId) => {
+    setFavoriteLoading((prev) => ({ ...prev, [productId]: true }));
+    try {
+      await toggleFavoriteApi(productId);
+
+      // Update local state
+      setProducts((prevProducts) =>
+        prevProducts.map((product) =>
+          product._id === productId
+            ? { ...product, isLike: !product.isLike }
+            : product
+        )
+      );
+
+      notification.success({
+        message: "Thành công",
+        description: products.find((p) => p._id === productId)?.isLike
+          ? "Đã bỏ khỏi danh sách yêu thích"
+          : "Đã thêm vào danh sách yêu thích",
+        duration: 2,
+      });
+    } catch {
+      notification.error({
+        message: "Lỗi",
+        description: "Không thể cập nhật trạng thái yêu thích",
+      });
+    } finally {
+      setFavoriteLoading((prev) => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleViewProduct = async (product) => {
+    try {
+      // Add view if not already viewed
+      if (!product.isViewed) {
+        // Update local state
+        setProducts((prevProducts) =>
+          prevProducts.map((p) =>
+            p._id === product._id ? { ...p, isViewed: true } : p
+          )
+        );
+      }
+
+      navigate(`/products/${product._id}`);
+    } catch (error) {
+      console.error("Error adding view:", error);
+      // Still navigate even if view tracking fails
+      navigate(`/products/${product._id}`);
+    }
+  };
+
   const handleResetFilters = () => {
     setSearchQuery("");
     setSelectedCategory("");
     setPriceMin(undefined);
     setPriceMax(undefined);
+    setViewMode("all");
     setCurrentPage(1);
   };
 
   const handlePageChange = (page, size) => {
     setCurrentPage(page);
-    if (size !== pageSize) {
-      setPageSize(size);
-    }
+    if (size !== pageSize) setPageSize(size);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -127,12 +215,11 @@ const ProductsPage = () => {
     setCurrentPage(1);
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
+  const formatPrice = (price) =>
+    new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(price);
-  };
 
   const getCategoryColor = (category) => {
     const colors = {
@@ -144,9 +231,63 @@ const ProductsPage = () => {
     return colors[category] || "default";
   };
 
+  const getViewModeStats = () => {
+    const totalProducts = products.length;
+    const viewedCount = products.filter((p) => p.isViewed).length;
+    const likedCount = products.filter((p) => p.isLike).length;
+
+    return { totalProducts, viewedCount, likedCount };
+  };
+
+  const stats = getViewModeStats();
+
   return (
     <div className="min-h-screen p-4 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="px-4 py-6 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+        {/* View Mode Selector */}
+        <div className="bg-white rounded-2xl shadow-lg mb-6 overflow-hidden">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-800">Sản phẩm</h2>
+              <div className="flex items-center gap-4 text-sm text-gray-600">
+                <span className="flex items-center gap-2">
+                  <Badge count={stats.totalProducts} showZero color="#1890ff" />
+                  Tổng cộng
+                </span>
+                <span className="flex items-center gap-2">
+                  <Badge count={stats.viewedCount} showZero color="#52c41a" />
+                  Đã xem
+                </span>
+                <span className="flex items-center gap-2">
+                  <Badge count={stats.likedCount} showZero color="#f5222d" />
+                  Yêu thích
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {viewModes.map((mode) => (
+                <Button
+                  key={mode.key}
+                  type={viewMode === mode.key ? "primary" : "default"}
+                  icon={mode.icon}
+                  onClick={() => {
+                    setViewMode(mode.key);
+                    setCurrentPage(1);
+                  }}
+                  className={`rounded-full transition-all duration-300 ${
+                    viewMode === mode.key
+                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-0 shadow-lg"
+                      : "hover:border-blue-400 hover:text-blue-600"
+                  }`}
+                >
+                  {mode.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Filters */}
         <div className="bg-white rounded-2xl shadow-lg mb-8">
           <div className="px-6 py-8 sm:px-8 sm:py-10">
@@ -178,7 +319,6 @@ const ProductsPage = () => {
                 </Select>
               </Col>
 
-              {/* Price Filter */}
               <Col xs={12} sm={6} md={6}>
                 <InputNumber
                   placeholder="Giá từ"
@@ -198,9 +338,12 @@ const ProductsPage = () => {
                 />
               </Col>
 
-              {/* Reset button */}
               <Col xs={24} sm={24} md={24} className="text-right">
-                <Button onClick={handleResetFilters} danger>
+                <Button
+                  onClick={handleResetFilters}
+                  danger
+                  className="rounded-lg"
+                >
                   Reset bộ lọc
                 </Button>
               </Col>
@@ -216,19 +359,46 @@ const ProductsPage = () => {
           </div>
         )}
 
+        {/* Empty State for Filtered Views */}
+        {!loading && products.length === 0 && viewMode !== "all" && (
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">
+              {viewMode === "viewed" ? "👀" : "💝"}
+            </div>
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              {viewMode === "viewed"
+                ? "Chưa có sản phẩm nào được xem"
+                : "Chưa có sản phẩm yêu thích"}
+            </h3>
+            <p className="text-gray-500 mb-6">
+              {viewMode === "viewed"
+                ? "Hãy khám phá và xem các sản phẩm để chúng xuất hiện ở đây"
+                : "Thêm sản phẩm vào danh sách yêu thích để dễ dàng tìm lại sau này"}
+            </p>
+            <Button
+              type="primary"
+              onClick={() => setViewMode("all")}
+              className="rounded-lg"
+            >
+              Xem tất cả sản phẩm
+            </Button>
+          </div>
+        )}
+
         {/* Products Grid */}
-        {!loading && (
+        {!loading && products.length > 0 && (
           <div className="mb-12">
             <Row gutter={[20, 24]}>
               {products.map((product) => (
                 <Col key={product._id} xs={24} sm={12} md={8} lg={6}>
                   <Card
                     hoverable
-                    className="h-full shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl border-0 overflow-hidden group"
+                    className="h-full shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl border-0 overflow-hidden group relative"
                     cover={
                       <div
-                        className="relative overflow-hidden"
+                        className="relative overflow-hidden cursor-pointer"
                         style={{ height: "240px" }}
+                        onClick={() => handleViewProduct(product)}
                       >
                         <img
                           alt={product.name}
@@ -241,41 +411,122 @@ const ProductsPage = () => {
                             height: "100%",
                           }}
                         />
+
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300" />
-                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <Button
-                            type="primary"
-                            shape="circle"
-                            icon={<HeartOutlined />}
-                            size="small"
-                            className="bg-white text-red-500 border-0 shadow-lg hover:bg-red-50"
-                          />
+
+                        {/* Status Badges */}
+                        <div className="absolute top-3 left-3 flex flex-col gap-2">
+                          {product.isViewed && (
+                            <Badge
+                              count={
+                                <Tooltip title="Sản phẩm đã xem">
+                                  <div className="flex items-center gap-1 bg-green-500 text-white text-xs font-medium px-3 py-1 rounded-full shadow-lg">
+                                    <EyeOutlined />
+                                    <span>Đã xem</span>
+                                  </div>
+                                </Tooltip>
+                              }
+                            />
+                          )}
+
+                          {product.isHot && (
+                            <Badge
+                              count={
+                                <Tooltip title="Sản phẩm hot">
+                                  <div className="flex items-center gap-1 bg-red-500 text-white text-xs font-medium px-3 py-1 rounded-full shadow-lg">
+                                    <FireOutlined />
+                                    <span>Hot</span>
+                                  </div>
+                                </Tooltip>
+                              }
+                            />
+                          )}
+
+                          {product.isNew && (
+                            <Badge
+                              count={
+                                <Tooltip title="Sản phẩm mới">
+                                  <div className="flex items-center gap-1 bg-blue-500 text-white text-xs font-medium px-3 py-1 rounded-full shadow-lg">
+                                    <StarOutlined />
+                                    <span>Mới</span>
+                                  </div>
+                                </Tooltip>
+                              }
+                            />
+                          )}
                         </div>
+
+                        {/* Heart Button */}
+                        <div className="absolute top-3 right-3">
+                          <Tooltip
+                            title={
+                              product.isLike
+                                ? "Bỏ yêu thích"
+                                : "Thêm vào yêu thích"
+                            }
+                          >
+                            <Button
+                              type="text"
+                              shape="circle"
+                              icon={
+                                product.isLike ? (
+                                  <HeartFilled />
+                                ) : (
+                                  <HeartOutlined />
+                                )
+                              }
+                              size="large"
+                              loading={favoriteLoading[product._id]}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleFavorite(product._id);
+                              }}
+                              className={`transition-all duration-300 shadow-lg backdrop-blur-sm ${
+                                product.isLike
+                                  ? "bg-red-500/90 hover:bg-red-600/90 text-white border-0"
+                                  : "bg-white/90 hover:bg-white text-gray-600 hover:text-red-500 border-0"
+                              }`}
+                            />
+                          </Tooltip>
+                        </div>
+
+                        {/* Recently Viewed Indicator */}
+                        {product.isViewed && (
+                          <div className="absolute bottom-3 right-3">
+                            <Tooltip title="Xem gần đây">
+                              <div className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
+                                <ClockCircleOutlined />
+                              </div>
+                            </Tooltip>
+                          </div>
+                        )}
                       </div>
                     }
                     actions={[
                       <Button
                         key="view"
-                        type="text"
-                        icon={<EyeOutlined />}
-                        className="text-blue-600 hover:text-blue-800 px-6"
+                        type="primary"
+                        onClick={() => handleViewProduct(product)}
+                        className="rounded-lg"
                       >
-                        Xem
+                        Xem chi tiết
                       </Button>,
                       <Button
                         key="cart"
                         type="primary"
                         icon={<ShoppingCartOutlined />}
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 border-0 hover:from-blue-600 hover:to-indigo-700 px-6"
+                        className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 border-0 rounded-lg"
                       >
-                        Mua
+                        Thêm giỏ
                       </Button>,
                     ]}
                   >
-                    {/* Card body với padding tối ưu */}
                     <div className="px-4 py-3" style={{ minHeight: "120px" }}>
                       <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-base font-semibold text-gray-800 line-clamp-2 flex-1 pr-3 leading-relaxed">
+                        <h3
+                          className="text-base font-semibold text-gray-800 line-clamp-2 flex-1 pr-3 leading-relaxed cursor-pointer hover:text-blue-600 transition-colors"
+                          onClick={() => handleViewProduct(product)}
+                        >
                           {product.name}
                         </h3>
                         <Tag
@@ -285,8 +536,25 @@ const ProductsPage = () => {
                           {product.category}
                         </Tag>
                       </div>
-                      <div className="text-xl font-bold text-indigo-600 mt-auto">
-                        {formatPrice(product.price)}
+
+                      <div className="flex items-center justify-between">
+                        <div className="text-xl font-bold text-indigo-600">
+                          {formatPrice(product.price)}
+                        </div>
+
+                        {/* Action Indicators */}
+                        <div className="flex items-center gap-2">
+                          {product.isLike && (
+                            <Tooltip title="Đã thích">
+                              <HeartFilled className="text-red-500" />
+                            </Tooltip>
+                          )}
+                          {product.isViewed && (
+                            <Tooltip title="Đã xem">
+                              <EyeOutlined className="text-green-500" />
+                            </Tooltip>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -307,7 +575,7 @@ const ProductsPage = () => {
                   pageSize={pageSize}
                   onChange={handlePageChange}
                   onShowSizeChange={handleShowSizeChange}
-                  showSizeChanger={true}
+                  showSizeChanger
                   pageSizeOptions={["8", "12", "16", "24"]}
                   showQuickJumper
                   showTotal={(total, range) =>
